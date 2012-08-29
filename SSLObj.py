@@ -59,9 +59,8 @@ class SSLObj(object):
                 attrs = newattrs
 
             # build index element from attrs and create object
-            print(pformat(attrs))
             self.elt = etree.Element(attrs['type'],**attrs)
-            del(self.elt.attrib['type'])
+            self.attrib('type','file')
 
             # generate crypto
             self.genCrypto()
@@ -121,9 +120,9 @@ class SSLObj(object):
             elif args[2] == 'ca':
                 kwargs[args[0]] = cacert
             else:
-                logger.error('unknown argument in extension: "%s=%s"' %
-                             (args[0],args[2]))
-                raise SSLObjException
+                raise SSLObjException(
+                    'unknown argument in extension: "%s=%s"' %
+                    (args[0],args[2]))
 
         # value is in format 'name[;arg1[;arg2]]'; split name & process args
         args = val.split(';')
@@ -151,10 +150,10 @@ class SSLObj(object):
         - Simple keys and certs are straight-forward
         - Certs may be combined with keys in the same file
         '''
-        for k in ('owner','group','perms'):
+        for k in ('owner','group','perms','type'):
             entry.attrib[k] = self.attrib(k)
 
-        entry.text = self.text
+        entry.text = self.getText()
 
     def textFname(self):
         '''
@@ -182,13 +181,23 @@ class SSLObj(object):
         with open(self.textFname(), 'r') as f:
             return f.read()
 
-    def tostring(self):
+    def getText(self):
+        '''
+        Return file text in requested form.  For now, that's just PEM.
+        '''
+        return self.text
+
+    def tostring(self,text=True):
         '''
         Create a string serializing important attributes for debugging
         '''
+        if text:
+            text = self.text
+        else:
+            text = ''
         return '%s\n%s' % \
             (etree.tostring(self.elt,pretty_print=True),
-             self.text)
+             text)
 
     def ssltype(self):
         '''Convenience function to return object SSL type'''
@@ -293,10 +302,9 @@ class SSLReq(SSLObj):
             try:
                 setattr(subject,f.upper(),defaults[f])
             except AttributeError as e:
-                logger.error(
+                raise SSLObjException(
                     'Attribute "%s" of cert request "%s", host "%s": %s' %
                     (f,self.attrib('name'),self.attrib('host'),e.args[0]))
-                raise SSLObjException
 
         # retrieve key
         keyattrs = {'name' : self.attrib('key'),
@@ -335,13 +343,13 @@ class SSLCert(SSLObj):
         '''
         # fill out defaults
         defaults = {
-            'ca'         : self.ca.name,
-            'days'       : self.ca.cert_default_days,
-            'extensions' : self.ca.cert_default_extensions,
-            'owner'      : 'root',
-            'group'      : 'root',
-            'perms'      : '0600',
-            'uuid'       : str(uuid.uuid4())
+            'ca'                : self.ca.name,
+            'days'              : self.ca.cert_default_days,
+            'extensions'        : self.ca.cert_default_extensions,
+            'owner'             : 'root',
+            'group'             : 'root',
+            'perms'             : '0600',
+            'uuid'              : str(uuid.uuid4())
             }
         # Element.attrib has no 'setdefault' method, so...
         defaults.update(self.elt.attrib)
@@ -350,8 +358,7 @@ class SSLCert(SSLObj):
         # If the 'ou_append_hostname' attribute is 'true', do it
         # (This is for client certs to auth to the same user but from
         # different machines; kojid wants this for some mad reason)
-        print('ou_append_hostname:  %s' % self.attrib('ou_append_hostname'))
-        if self.attrib('ou_append_hostname').lower() == 'true':
+        if self.attrib('ou_append_hostname',default='').lower() == 'true':
             self.attrib('ou', self.attrib('ou') + self.metadata.hostname)
 
         # generate the X509Req object
@@ -381,16 +388,30 @@ class SSLCert(SSLObj):
         cert.add_extensions(extensions)
 
         # sign cert
-        cert.sign(cakey, "sha1")
+        cert.sign(cakey, self.ca.cert_default_md)
 
         # add cert text to object
         self.text = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+
+    def getText(self):
+        '''
+        Return file text in requested form.  SSLCert objects may need to
+        append key text to cert text for some files.
+        '''
+
         # append key text if they're destined for the same file
         if self.attrib('key') == self.attrib('name') or \
-                self.attrib('append_key').lower() == 'true':
-            print ('Found combined cert')
-            self.text = '\n'.join((self.text,reqobj.text))
+                self.attrib('append_key',default='false').lower() == 'true':
+            keyattrs = {'type':'SSLKey',
+                        'name':self.attrib('key',self.attrib('name')),
+                        'host':self.metadata.hostname}
+            print(pformat(keyattrs))
+            keyobj = self.ca.initSSLObj(keyattrs, self.metadata)
+            text = '\n'.join((self.text,keyobj.text))
+        else:
+            text = self.text
 
+        return text
 
 class SSLCAObj(SSLObj):
     '''
@@ -417,7 +438,6 @@ class SSLCAObj(SSLObj):
         # Element.attrib has no 'setdefault' method, so...
         defaults.update(self.elt.attrib)
         self.elt.attrib.update(defaults)
-
 
     def textFname(self):
         '''

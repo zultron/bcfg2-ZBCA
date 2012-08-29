@@ -77,8 +77,4 @@ class ZBCA(Plugin.PrioDir):
         # retrieve CA and SSL objects and bind the entry
         ca = self.getCA(attrs)
         obj = ca.initSSLObj(attrs,metadata)
-        print(obj.tostring())
         obj.bind(entry)
-
-        print(etree.tostring(entry))
-

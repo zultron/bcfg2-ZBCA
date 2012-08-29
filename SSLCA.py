@@ -22,6 +22,7 @@ class SSLCA(object):
         self.key_default_bits = '2048'
         self.key_default_algorithm = 'rsa'
         self.req_default_md = 'sha512'
+        self.cert_default_md = 'sha512'
         self.cert_default_days = '365'
         self.cert_default_extensions = None
         self.ca_days = '1096'

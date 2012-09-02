@@ -1,27 +1,30 @@
 Bcfg2-ZBCA
 
-This is a Bcfg2 plugin that manages an SSL certificate authority.
+A Bcfg2 plugin to manage an SSL certificate authority
 
 -------------------------------------------------------------------------------
 Why ZBCA
 
-Bcfg2 already has an SSLCA plugin. Why write a new one?
+Bcfg2 already has the SSLCA plugin. Why write a new CA plugin?
 
-We needed Bcfg2 to manage our system certs.  We were tired of manually
+We need Bcfg2 to manage our system certs.  We are tired of manually
 creating certs and copying them to the right place in the Cfg
-directory.  The SSLCA plugin worked great for system certs, but didn't
-do what we needed for other types.  We considered extending SSLCA, but
-decided that we'd rather write our own with the pyOpenSSL library.
+directory, and tired of shell scripts that only partially automate
+that.  The SSLCA plugin worked great for system certs, but didn't do
+what we needed for other types of cert.  We considered extending
+SSLCA, but finally decided that we'd rather write our own.  Our plugin
+uses the pyOpenSSL library instead of the openssl command line
+utility, and is highly modularized to ease extension.
 
-The SSLCA plugin manages host certificates.  ZBCA adds some extra features:
+Here are some notable features of ZBCA:
 
 - Configurable file attributes
   - By default, key file mode is 0600, and cert file mode is 0644
   - owner and group default to root
  - These may be configured in spec similar to the Rules plugin
 - Files containing both key and cert catenated together
-  - ZBCA can create separate files, or a single file with combined key 
-    and cert
+  - ZBCA can either create separate files or a single file combining
+    key and cert
     - Some applications require this:
       - Early versions of bcfg2!
       - Koji daemons

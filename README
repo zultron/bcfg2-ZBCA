@@ -1,0 +1,58 @@
+Bcfg2-ZBCA
+
+This is a Bcfg2 plugin that manages an SSL certificate authority.
+
+-------------------------------------------------------------------------------
+Why ZBCA
+
+Bcfg2 already has an SSLCA plugin. Why write a new one?
+
+We needed Bcfg2 to manage our system certs.  We were tired of manually
+creating certs and copying them to the right place in the Cfg
+directory.  The SSLCA plugin worked great for system certs, but didn't
+do what we needed for other types.  We considered extending SSLCA, but
+decided that we'd rather write our own with the pyOpenSSL library.
+
+The SSLCA plugin manages host certificates.  ZBCA adds some extra features:
+
+- Configurable file attributes
+  - By default, key file mode is 0600, and cert file mode is 0644
+  - owner and group default to root
+ - These may be configured in spec similar to the Rules plugin
+- Files containing both key and cert catenated together
+  - ZBCA can create separate files, or a single file with combined key 
+    and cert
+    - Some applications require this:
+      - Early versions of bcfg2!
+      - Koji daemons
+- Certificate 'profiles' with customized X509v3 extensions
+  - Server certs:
+    - X509v3 extensions authenticate server to client
+    - Used by web, mail, directory, etc. servers
+  - Client certs:
+    - X509v3 extensions authenticate clients to servers
+    - Used by e.g. kojid, kojira
+- Extensibility
+  - The python classes in ZBCA are clearly separated into submodules:
+    - ZBCA:		The Bcfg2 plugin class
+    - ZBCA.SSLCA:	The certificate authority
+    - ZBCA.SSLObjIndex:	Abstracts the key, cert, etc. indexing operations
+    - ZBCA.SSLObj:	Key, cert, CA cert, etc. object classes
+  - This modularity allows the plugin to easily be extended to handle
+    future features, such as PKCS12 and NSS file formats; CRL objects;
+    verification, expiration and revocation methods; etc.
+
+-------------------------------------------------------------------------------
+TODO
+
+- Put documentation into Sphinx
+- Better random key generation and persistant seed?
+- PKCS12
+- Better error checking
+- Better handling of exceptions and logs
+- Key+cert validation
+- CRLs
+- Rename element tags to class name, and remove confusing 'type' attribute
+- Really, keys and reqs should be generated on the client side and
+  signed on the server side; this may or may not be feasible
+

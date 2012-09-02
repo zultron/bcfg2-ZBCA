@@ -15,7 +15,7 @@ class SSLCA(object):
     The CA maintains configuration for generating SSL objects, and
     contains an object index to look up existing and store new objects
     """
-    def __init__(self,name,config):
+    def __init__(self,name,plugin):
         self.name = name
 
         # set config defaults
@@ -29,52 +29,53 @@ class SSLCA(object):
         self.dn_fields = [ 'C', 'ST', 'L', 'O', 'OU', 'CN' ]
         self.dn_defaults = {}
         self.extensions = {}
-        self.basepath = '%s/CA/%s' % (config.basepath,self.name)
-        self.config = config
+        self.basepath = '%s/CA/%s' % (plugin.data,self.name)
+        self.plugin = plugin
 
         # read configuration file
-        self.readBasicConfig(config)
-        self.readDNDefaultConfig(config)
-        self.readExtensionsConfig(config)
+        self.readBasicConfig()
+        self.readDNDefaultConfig()
+        self.readExtensionsConfig()
 
         # initialize object index & make methods available
         self.index = SSLObjIndex(self)
 
-    def readBasicConfig(self,config):
+    def config(self,*args,**kwargs):
+        '''Convenience function to call self.plugin.config with self.name'''
+        return self.plugin.config(self.name,*args,**kwargs)
+
+    def readBasicConfig(self):
         '''
-        Process the config file section for this CA [<self.name>]
+        Process the config file section for this CA [zbca:ca_name]
         '''
-        for opt, val in config.items(self.name):
+        for opt, val in self.config():
             if opt == 'dn_fields':
                 val = [s.strip().lower() for s in val.split(',')]
             setattr(self,opt,val)
+
+    def readDNDefaultConfig(self):
+        '''
+        Process the dn-defaults config file section for this CA
+        [zbca:ca_name-dn-defaults]
+        '''
+        for opt, val in self.config('dn-defaults'):
+            self.dn_defaults[opt.lower()] = val
+        
+    def readExtensionsConfig(self):
+        '''
+        Process the extensions config file sections for this CA:
+        [zbca:ca_name-extensions-foo]
+        '''
+        for suffix,sect in self.config('extensions',True):
+            self.extensions[suffix] = {}
+            for opt, val in sect:
+                self.extensions[suffix][opt] = val
 
     def defaultExtensions(self):
         '''
         Convenience function returns default extensions dict
         '''
         return self.extensions.get(self.cert_default_extensions,None)
-
-    def readDNDefaultConfig(self,config):
-        '''
-        Process the config file dn-defaults section for this CA
-        [<self.name>-dn-defaults]
-        '''
-        sect = self.name+'-dn-defaults'
-        for opt, val in config.items(sect):
-            self.dn_defaults[opt.lower()] = val
-        
-    def readExtensionsConfig(self,config):
-        '''
-        Process the config file extensions-foo for this CA
-        [<self.name>-extensions-foo]
-        '''
-        prefix = '%s-extensions-' % (self.name)
-        for sect in [s for s in config.sections() if s.startswith(prefix)]:
-            suffix = sect[len(prefix):]
-            self.extensions[suffix] = {}
-            for opt, val in config.items(sect):
-                self.extensions[suffix][opt] = val
 
     def initSSLObj(self, attrs, metadata):
         '''

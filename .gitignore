@@ -1,3 +1,6 @@
+# setuptools artifacts
+/build
+/Bcfg2_ZBCA.egg-info
 # ignore emacs cruft
 *~
 .#*

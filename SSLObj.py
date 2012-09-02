@@ -5,10 +5,6 @@ from OpenSSL import crypto
 import uuid
 from pprint import pformat
 
-import sys
-import traceback
-
-
 logger = logging.getLogger(__name__)
 
 class SSLObjException(Exception):
@@ -243,7 +239,6 @@ class SSLKey(SSLObj):
         # Element.attrib has no 'setdefault' method, so...
         defaults.update(self.elt.attrib)
         self.elt.attrib.update(defaults)
-        self.attrib('type','file')
 
         # generate the key
         key = crypto.PKey()
@@ -297,7 +292,6 @@ class SSLReq(SSLObj):
         # Element.attrib has no 'setdefault' method, so...
         defaults.update(self.elt.attrib)
         self.elt.attrib.update(defaults)
-        self.attrib('type','file')
 
         # generate the req
         req = crypto.X509Req()
@@ -360,7 +354,6 @@ class SSLCert(SSLObj):
         # Element.attrib has no 'setdefault' method, so...
         defaults.update(self.elt.attrib)
         self.elt.attrib.update(defaults)
-        self.attrib('type','file')
 
         # If the 'ou_append_hostname' attribute is 'true', do it
         # (This is for client certs to auth to the same user but from
@@ -445,7 +438,6 @@ class SSLCAObj(SSLObj):
         # Element.attrib has no 'setdefault' method, so...
         defaults.update(self.elt.attrib)
         self.elt.attrib.update(defaults)
-        self.attrib('type','file')
 
     def textFname(self):
         '''

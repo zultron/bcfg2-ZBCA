@@ -421,7 +421,7 @@ class SSLCAObj(SSLObj):
         '''
         For the moment, the CA objects are given to us, not generated.
         '''
-        elt = etree.Element(self.ssltype())
+        elt = etree.Element(self.ssltype(),type='file')
         self.store = False
         SSLObj.__init__(self,ca,elt,metadata)
         

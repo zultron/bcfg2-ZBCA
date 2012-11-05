@@ -150,7 +150,7 @@ class SSLObj(object):
         - Simple keys and certs are straight-forward
         - Certs may be combined with keys in the same file
         '''
-        for k in ('owner','group','perms','type'):
+        for k in ('owner','group','mode','type'):
             entry.attrib[k] = self.attrib(k)
 
         entry.text = self.getText()
@@ -166,7 +166,7 @@ class SSLObj(object):
     def writeText(self):
         '''
         Write the PEM text to a file
-        Create w/perms go-rwx to keep key data safe
+        Create w/mode go-rwx to keep key data safe
         '''
         with os.fdopen(
             os.open(self.textFname(), 
@@ -215,7 +215,7 @@ class SSLKey(SSLObj):
 
     <Path type='SSLKey' name='/etc/pki/tls/private/localhost.key'
     algorithm='rsa' bits='2048'
-    owner='root' group='root' perms='0600'
+    owner='root' group='root' mode='0600'
     />
 
     The 'rsa' and 'bits' attributes may be put in a 'type="SSLCert"'
@@ -233,7 +233,7 @@ class SSLKey(SSLObj):
             'algorithm' : self.ca.key_default_algorithm,
             'owner'     : 'root',
             'group'     : 'root',
-            'perms'     : '0600',
+            'mode'      : '0600',
             'uuid'      : str(uuid.uuid4())
             }
         # Element.attrib has no 'setdefault' method, so...
@@ -285,7 +285,7 @@ class SSLReq(SSLObj):
                 'md_algo'   : self.ca.req_default_md,
                 'owner'     : 'root',
                 'group'     : 'root',
-                'perms'     : '0644',
+                'mode'      : '0644',
                 'uuid'      : str(uuid.uuid4()),
                 'cn'        : self.metadata.hostname,
                 })
@@ -348,7 +348,7 @@ class SSLCert(SSLObj):
             'extensions'        : self.ca.cert_default_extensions,
             'owner'             : 'root',
             'group'             : 'root',
-            'perms'             : '0600',
+            'mode'              : '0600',
             'uuid'              : str(uuid.uuid4())
             }
         # Element.attrib has no 'setdefault' method, so...
@@ -430,11 +430,11 @@ class SSLCAObj(SSLObj):
             'ca'         : self.ca.name,
             'owner'      : 'root',
             'group'      : 'root',
-            'perms'      : '0644',
+            'mode'       : '0644',
             'uuid'       : str(uuid.uuid4())
             }
         if self.ssltype() == 'SSLCACert':
-            defaults['perms'] = '0600'
+            defaults['mode'] = '0600'
         # Element.attrib has no 'setdefault' method, so...
         defaults.update(self.elt.attrib)
         self.elt.attrib.update(defaults)

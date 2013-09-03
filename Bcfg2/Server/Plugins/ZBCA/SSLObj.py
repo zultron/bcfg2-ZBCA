@@ -3,6 +3,7 @@ from lxml import etree
 import os
 from OpenSSL import crypto
 import uuid
+from datetime import datetime, timedelta
 from pprint import pformat
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ class SSLObj(object):
     '''
     # map 'type="..."' attributes to subclasses, filled in by subclasses
     typedict = {}
+    store = True   # Most objects stored in files, except reqs
 
     def __init__(self,ca,elt_or_attrs,metadata,**kwargs):
         '''
@@ -40,27 +42,29 @@ class SSLObj(object):
         '''
         self.ca = ca
         self.metadata = metadata
-        if not hasattr(self,'store'):  # subclasses can override
-            self.store = True
 
         if type(elt_or_attrs) == etree._Element:
             # we were given an element; fill out object attributes
             self.elt = elt_or_attrs
             self.text = self.readText()
 
-        else:
-            # we were given an attrs dict; generate a new SSL object
-            attrs = elt_or_attrs
-            # process the attribute map
-            if kwargs:
-                newattrs = {}
-                for key, val in map:
-                    newattrs[key] = attrs[val]
-                attrs = newattrs
+        if type(elt_or_attrs) != etree._Element or not self.validate():
+            # we were given an attrs dict or object is invalid;
+            # regenerate
 
-            # build index element from attrs and create object
-            self.elt = etree.Element(attrs['type'],**attrs)
-            self.attrib('type','file')
+            if type(elt_or_attrs) != etree._Element:
+                # generate a new element tree
+                attrs = elt_or_attrs
+                # process the attribute map
+                if kwargs:
+                    newattrs = {}
+                    for key, val in map:
+                        newattrs[key] = attrs[val]
+                    attrs = newattrs
+
+                # build index element from attrs and create object
+                self.elt = etree.Element(attrs['type'],**attrs)
+                self.attrib('type','file')
 
             # generate crypto
             self.genCrypto()
@@ -84,6 +88,10 @@ class SSLObj(object):
 
         # return result of appropriate class's constructor function
         return cls.typedict[ssltype](ca,elt_or_attrs,metadata)
+
+    def validate(self):
+        ''' Validate self; return True on success '''
+        return True
 
     def attrib(self,attrname,setval=None,default=None):
         '''
@@ -268,10 +276,7 @@ class SSLReq(SSLObj):
     generation of SSLCert objects.
     '''
 
-    def __init__(self,ca,elt,metadata):
-        '''SSLReq objects aren't indexed or stored'''
-        self.store = False
-        SSLObj.__init__(self,ca,elt,metadata)
+    store = False
 
     def genCrypto(self):
         '''
@@ -405,13 +410,36 @@ class SSLCert(SSLObj):
             keyattrs = {'type':'SSLKey',
                         'name':self.attrib('key',self.attrib('name')),
                         'host':self.metadata.hostname}
-            print(pformat(keyattrs))
             keyobj = self.ca.initSSLObj(keyattrs, self.metadata)
             text = '\n'.join((self.text,keyobj.text))
         else:
             text = self.text
 
         return text
+
+    def daysLeft(self):
+        '''
+        Calculate the number of days left before expiration
+        '''
+        
+        # the date format returned by load_certificate()
+        asn1Format = '%Y%m%d%H%M%SZ'
+
+        # extract the expiration date
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, self.getText())
+        expirationDate = datetime.strptime(cert.get_notAfter(),asn1Format)
+
+        # calculate and return days left
+        return (expirationDate - datetime.today()).days
+
+    def validate(self):
+        '''
+        Check if the cert is valid
+        '''
+
+        # right now this only checks the date, not the CA cert chain
+        return self.daysLeft() > int(self.ca.cert_replace_days)
+
 
 class SSLCAObj(SSLObj):
     '''
